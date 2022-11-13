@@ -8,8 +8,8 @@ import dayjs from "dayjs";
 const app = express();
 app.use(express.json());
 app.use(cors());
-dotenv.config();
 app.listen(5000, () => console.log("It's running maaaaan ..."));
+dotenv.config();
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db;
@@ -23,6 +23,12 @@ try {
 
 const participantSchema = joi.object({
   name: joi.string().alphanum().min(1).required(),
+});
+
+const messageSchema = joi.object({
+  to: joi.string().alphanum().min(1).required(),
+  text: joi.string().min(1).required(),
+  type: joi.string().valid("message", "private_message"),
 });
 
 app.post("/participants", async (req, res) => {
@@ -69,9 +75,23 @@ app.get("/participants", async (req, res) => {
       .collection("participants")
       .find()
       .toArray();
-    console.log(allParticipants)  
+    console.log(allParticipants);
     res.send(allParticipants);
   } catch (erro) {
     console.log(erro);
   }
+});
+
+app.post("/messages", async (req, res) => {
+  const validation = messageSchema.validate(req.body, { abortEarly: false });
+  const participantOnline= await db.collection("participants").findOne({name:req.headers.user})
+
+  if (validation.error ||!participantOnline) {
+    res.sendStatus(422);
+    return;
+  }
+  
+  res.sendStatus(201)
+  
+  
 });

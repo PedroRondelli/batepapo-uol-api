@@ -75,7 +75,6 @@ app.get("/participants", async (req, res) => {
       .collection("participants")
       .find()
       .toArray();
-    console.log(allParticipants);
     res.send(allParticipants);
   } catch (erro) {
     console.log(erro);
@@ -84,14 +83,67 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
   const validation = messageSchema.validate(req.body, { abortEarly: false });
-  const participantOnline= await db.collection("participants").findOne({name:req.headers.user})
+  const participantOnline = await db
+    .collection("participants")
+    .findOne({ name: req.headers.user });
 
-  if (validation.error ||!participantOnline) {
+  if (validation.error || !participantOnline) {
     res.sendStatus(422);
     return;
   }
-  
-  res.sendStatus(201)
-  
-  
+  await db.collection("messages").insertOne({
+    from: req.headers.user,
+    to: req.body.to,
+    text: req.body.text,
+    type: req.body.type,
+    time: dayjs().format("HH:mm:ss"),
+  });
+  res.sendStatus(201);
+});
+
+app.get("/messages", async (req, res) => {
+  const { limit } = req.query;
+  const limitNumber = parseInt(limit);
+  try {
+    const allMessages = await db.collection("messages").find().toArray();
+
+    if (limitNumber) {
+      const messages = allMessages.filter((message, index) => {
+        const onLimit =
+          index <= allMessages.length - 1 &&
+          index >= allMessages.length - limitNumber;
+        const userCanRead =
+          (message.type === "message"|| message.type==="status") ||
+          (message.type === "private_message" &&
+            message.to === req.headers.user) ||
+          (message.type === "private_message" &&
+            message.from === req.headers.user);
+        if (onLimit && userCanRead) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+
+      res.send(messages.reverse());
+      return;
+    }
+
+  const canBeRead= allMessages.filter(message=>{
+    const userCanRead =
+          (message.type === "message"|| message.type==="status" )||
+          (message.type === "private_message" &&
+            message.to === req.headers.user) ||
+          (message.type === "private_message" &&
+            message.from === req.headers.user);
+    if(userCanRead){
+      return true
+    }else{
+      return false
+    }
+  })
+  res.send(canBeRead.reverse());
+  } catch (erro) {
+    console.log(erro);
+  }
 });

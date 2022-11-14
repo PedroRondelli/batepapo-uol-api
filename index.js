@@ -40,6 +40,32 @@ function chooseMsgs(message, user) {
   return userCanRead;
 }
 
+setInterval(async () => {
+  try {
+    const allParticipants = await db
+      .collection("participants")
+      .find()
+      .toArray();
+
+    allParticipants.forEach(async (participant) => {
+      if (Date.now() - participant.lastStatus > 10000) {
+        await db
+          .collection("participants")
+          .deleteOne({ name: participant.name });
+        await db.collection("messages").insertOne({
+          from: participant.name,
+          to: "Todos",
+          text: "sai da sala...",
+          type: "status",
+          time: dayjs().format("HH:mm:ss"),
+        });
+      }
+    });
+  } catch (erro) {
+    console.log(erro);
+  }
+}, 15000);
+
 app.post("/participants", async (req, res) => {
   const participant = req.body;
   const validation = participantSchema.validate(participant, {
@@ -149,7 +175,7 @@ app.post("/status", async (req, res) => {
   }
   await db
     .collection("participants")
-    .updateOne({ name: participant }, { $set: {lastStatus:Date.now()} });
+    .updateOne({ name: participant }, { $set: { lastStatus: Date.now() } });
 
   res.sendStatus(200);
 });

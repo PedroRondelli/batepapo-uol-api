@@ -141,10 +141,15 @@ app.post("/status", async (req, res) => {
   const participant = req.headers.user;
   const participantExists = await db
     .collection("participants")
-    .find({ name: participant });
+    .findOne({ name: participant });
 
   if (!participantExists) {
     res.sendStatus(404);
     return;
   }
+  await db
+    .collection("participants")
+    .updateOne({ name: participant }, { $set: {lastStatus:Date.now()} });
+
+  res.sendStatus(200);
 });

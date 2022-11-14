@@ -154,10 +154,13 @@ app.get("/messages", async (req, res) => {
     });
     if (limitNumber) {
       console.log(limitNumber);
-      res.send(canBeRead.reverse().filter((element, idx) => idx < limitNumber));
+      const firstArray = canBeRead
+        .reverse()
+        .filter((element, idx) => idx < limitNumber);
+      res.send(firstArray.reverse());
       return;
     }
-    res.send(canBeRead.reverse());
+    res.send(canBeRead);
   } catch (erro) {
     console.log(erro);
   }

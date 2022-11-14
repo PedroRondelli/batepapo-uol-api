@@ -22,14 +22,23 @@ try {
 }
 
 const participantSchema = joi.object({
-  name: joi.string().alphanum().min(1).required(),
+  name: joi.string().required(),
 });
 
 const messageSchema = joi.object({
-  to: joi.string().alphanum().min(1).required(),
-  text: joi.string().min(1).required(),
+  to: joi.string().required(),
+  text: joi.string().required(),
   type: joi.string().valid("message", "private_message"),
 });
+
+function chooseMsgs(message, user) {
+  const userCanRead =
+    message.type === "message" ||
+    message.type === "status" ||
+    (message.type === "private_message" && message.to === user) ||
+    (message.type === "private_message" && message.from === user);
+  return userCanRead;
+}
 
 app.post("/participants", async (req, res) => {
   const participant = req.body;
@@ -104,46 +113,38 @@ app.post("/messages", async (req, res) => {
 app.get("/messages", async (req, res) => {
   const { limit } = req.query;
   const limitNumber = parseInt(limit);
+  console.log(limitNumber);
   try {
     const allMessages = await db.collection("messages").find().toArray();
 
-    if (limitNumber) {
-      const messages = allMessages.filter((message, index) => {
-        const onLimit =
-          index <= allMessages.length - 1 &&
-          index >= allMessages.length - limitNumber;
-        const userCanRead =
-          (message.type === "message"|| message.type==="status") ||
-          (message.type === "private_message" &&
-            message.to === req.headers.user) ||
-          (message.type === "private_message" &&
-            message.from === req.headers.user);
-        if (onLimit && userCanRead) {
-          return true;
-        } else {
-          return false;
-        }
-      });
+    const canBeRead = allMessages.filter((message) => {
+      const userCanRead = chooseMsgs(message, req.headers.user);
 
-      res.send(messages.reverse());
+      if (userCanRead) {
+        return true;
+      } else {
+        return false;
+      }
+    });
+    if (limitNumber) {
+      console.log(limitNumber);
+      res.send(canBeRead.reverse().filter((element, idx) => idx < limitNumber));
       return;
     }
-
-  const canBeRead= allMessages.filter(message=>{
-    const userCanRead =
-          (message.type === "message"|| message.type==="status" )||
-          (message.type === "private_message" &&
-            message.to === req.headers.user) ||
-          (message.type === "private_message" &&
-            message.from === req.headers.user);
-    if(userCanRead){
-      return true
-    }else{
-      return false
-    }
-  })
-  res.send(canBeRead.reverse());
+    res.send(canBeRead.reverse());
   } catch (erro) {
     console.log(erro);
+  }
+});
+
+app.post("/status", async (req, res) => {
+  const participant = req.headers.user;
+  const participantExists = await db
+    .collection("participants")
+    .find({ name: participant });
+
+  if (!participantExists) {
+    res.sendStatus(404);
+    return;
   }
 });
